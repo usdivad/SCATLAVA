@@ -59,11 +59,13 @@ duration_to_note_attrs = { # we only support up to 32nd notes
     },
 
     # 8ths
+    126: {'type': 'eighth'}, # for rounding when tripletizing up
     127: {'type': 'eighth'}, # for rounding when tripletizing up
     128: {'type': 'eighth'},
     129: {'type': 'eighth'}, # for rounding when tripletizing up
 
     # dotted 8ths
+    190: {'type': 'eighth', 'dot': ''},
     192: {'type': 'eighth', 'dot': ''},
 
     # quarter triplets
@@ -93,6 +95,8 @@ duration_to_note_attrs = { # we only support up to 32nd notes
     },
 
     # quarter
+    252: {'type': 'quarter'},
+    254: {'type': 'quarter'},
     256: {'type': 'quarter'},
 
     # dotted quarter
@@ -108,28 +112,51 @@ duration_to_note_attrs = { # we only support up to 32nd notes
     1024: {'type': 'whole'}
 }
 
-def parse_note(note, prevNoteDur):
+def parse_note(note, prev_note, duration_min, duration_left):
+    print '{} left'.format(duration_left)
     if type(note) is dict or type(note) is collections.OrderedDict: # otherwise it's a rest and we ignore it
 
         # if 'rest' in note:
         #     return note
-            
-        duration = int(note['duration'])
-        diff = prevNoteDur - duration
-        print '{} - {} = {}'.format(prevNoteDur, duration, diff)
 
-        if diff > 0:
-            print 'note of duration {} is now a rest'.format(duration)
-            return 'rest'
+        # comparing durations to prev
+        duration = int(note['duration'])
+        prev_note_dur = int(prev_note['duration'])
+        diff = prev_note_dur - duration
+        # duration_error_margin = 10
+        print '{} - {} = {}'.format(prev_note_dur, duration, diff)
+
+        # comparing note equality from prev
+        same_note = False
+        if 'unpitched' in note and 'unpitched' in prev_note:
+            notename = to_note_name(note)
+            prev_notename = to_note_name(prev_note)
+            same_note = (notename == prev_notename)
+
+        if diff >= 0: #and same_note:
+            print 'note of duration {} has been removed'.format(duration)
+            # return 'rest'
+            return diff
 
         # testing
         if 'dot' not in note:
-            if 'time-modification' in note:
-                duration = duration * 1.5 # todo: smartly tripletize
-            else:
-                duration = duration * 2
+            # if 'time-modification' in note:
+            #     while duration < duration_min:
+            #         print '{} < {}'.format(duration, duration_min)
+            #         duration = int(duration * 1.5) # todo: smartly tripletize
+            # else:
+            #     while duration < duration_min:
+            #         print '{} < {}'.format(duration, duration_min)
+            #         duration = int(duration * 2)
 
-        duration = int(duration)
+            while duration < duration_min and duration < duration_left:
+                print '{} < {}'.format(duration, duration_min)
+                if 'time-modification' in duration_to_note_attrs[duration]:
+                    duration = int(duration * 1.5)
+                else:
+                    duration = int(duration * 2)
+
+
         note_attrs = duration_to_note_attrs[duration]
 
         note['duration'] = str(duration)
@@ -162,6 +189,10 @@ def debug_unparse(data, label):
 # def remove_rests(note):
     # return
 
+def to_note_name(note):
+    unpitched = note['unpitched']
+    return '{}{}'.format(unpitched['display-step'], unpitched['display-octave'])
+
 if __name__ == '__main__':
     score_xml_in_path = sys.argv[1]
     score_xml_out_path = sys.argv[2]
@@ -173,21 +204,37 @@ if __name__ == '__main__':
 
     score_json = xmltodict.parse(score_xml)
     measures = score_json['score-partwise']['part']['measure'] # a list
+
+    duration_min = 128
     
     for mi, measure in enumerate(measures):
         notes = measure['note']
-        prevNoteDur = 0
+        prev_note_dur = 0
+        prev_note = {
+            'duration': '0',
+            'unpitched': {
+                'display-step': 'X',
+                'display-octave': '-1'
+            }
+        }
+        duration_left = 1024 # default measure length in 4/4
         print 'num notes before: {}'.format(len(notes))
 
         for ni, note in enumerate(notes):
             print 'note {}:'.format(ni)
-            note = parse_note(note, prevNoteDur)
+            # note = parse_note(note, prev_note)
+            note = parse_note(note, {'duration': prev_note_dur}, duration_min, duration_left)
 
             if type(note) is dict or type(note) is collections.OrderedDict: # otherwise it's a rest and we ignore it
-                prevNoteDur = int(note['duration'])
+                duration = int(note['duration'])
+                prev_note_dur = duration
+                duration_left -= duration
+                prev_note = note
             else:
-                print note
-                prevNoteDur = 0
+                # print note
+                prev_note_dur = 0
+                # duration_left -= note
+                # prev_note['duration'] = 0
 
             notes[ni] = note
 
