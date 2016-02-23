@@ -114,10 +114,10 @@ duration_to_note_attrs = { # we only support up to 32nd notes
 
 def parse_note(note, prev_note, duration_min, duration_left):
     print '{} left'.format(duration_left)
-    if type(note) is dict or type(note) is collections.OrderedDict: # otherwise it's a rest and we ignore it
+    if is_valid_note(note): # otherwise it's a deleted and we ignore it
 
-        # if 'rest' in note:
-        #     return note
+        if 'rest' in note:
+            return note
 
         # comparing durations to prev
         duration = int(note['duration'])
@@ -133,7 +133,7 @@ def parse_note(note, prev_note, duration_min, duration_left):
             prev_notename = to_note_name(prev_note)
             same_note = (notename == prev_notename)
 
-        if diff >= 0: #and same_note:
+        if diff > 0: #and same_note:
             print 'note of duration {} has been removed'.format(duration)
             # return 'rest'
             return diff
@@ -149,7 +149,7 @@ def parse_note(note, prev_note, duration_min, duration_left):
             #         print '{} < {}'.format(duration, duration_min)
             #         duration = int(duration * 2)
 
-            while duration < duration_min and duration < duration_left:
+            while duration < duration_min: #and duration > duration_left:
                 print '{} < {}'.format(duration, duration_min)
                 if 'time-modification' in duration_to_note_attrs[duration]:
                     duration = int(duration * 1.5)
@@ -193,6 +193,9 @@ def to_note_name(note):
     unpitched = note['unpitched']
     return '{}{}'.format(unpitched['display-step'], unpitched['display-octave'])
 
+def is_valid_note(note):
+    return type(note) is dict or type(note) is collections.OrderedDict
+
 if __name__ == '__main__':
     score_xml_in_path = sys.argv[1]
     score_xml_out_path = sys.argv[2]
@@ -205,8 +208,9 @@ if __name__ == '__main__':
     score_json = xmltodict.parse(score_xml)
     measures = score_json['score-partwise']['part']['measure'] # a list
 
-    duration_min = 128
+    duration_min = 128 # rhythmic granularity of the output score we want
     
+    # iterate through measures
     for mi, measure in enumerate(measures):
         notes = measure['note']
         prev_note_dur = 0
@@ -220,12 +224,31 @@ if __name__ == '__main__':
         duration_left = 1024 # default measure length in 4/4
         print 'num notes before: {}'.format(len(notes))
 
+        # another approach: binning
+        bin_divisions = 4
+        bin_duration = duration_left / bin_divisions
+        cur_bin_duration = bin_duration
+        bin_i = 0
+        bin = [ [] for i in xrange(bin_divisions) ]
+
+        for note in notes:
+            if is_valid_note(note) and 'duration' in note:
+                cur_bin_duration -= int(note['duration'])
+            if cur_bin_duration < 0:
+                bin_i = min(bin_i+1, len(bin)-1)
+                cur_bin_duration = bin_duration
+            bin[bin_i].append(note)
+
+        print bin[0]
+
+
+        # iterate through notes and adjust durations (or delete note) using parse_note()
         for ni, note in enumerate(notes):
             print 'note {}:'.format(ni)
             # note = parse_note(note, prev_note)
             note = parse_note(note, {'duration': prev_note_dur}, duration_min, duration_left)
 
-            if type(note) is dict or type(note) is collections.OrderedDict: # otherwise it's a rest and we ignore it
+            if is_valid_note(note): # otherwise it's a rest and we ignore it
                 duration = int(note['duration'])
                 prev_note_dur = duration
                 duration_left -= duration
@@ -239,7 +262,7 @@ if __name__ == '__main__':
             notes[ni] = note
 
         # notes = filter(remove_rests, notes)
-        notes = [note for note in notes if (type(note) is dict or type(note) is collections.OrderedDict)]
+        notes = [note for note in notes if (is_valid_note(note))]
 
         print 'num notes after: {}'.format(len(notes))
         # print notes
