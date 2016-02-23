@@ -211,11 +211,9 @@ def syncopation_value_beat(beat, method, bin_size, bin_divisions=4, max_bin_gran
     value = 0
     granularity = max_bin_granularity / bin_divisions
 
-    '''
-    Density algorithm:
-    Essentially calculates onsets over duration
-    Make sure max_bin_granularity > the max number of possible onsets you might have, otherwise value will be greater than 1
-    '''
+    # Onset Density Measure:
+    # - essentially calculates onsets over duration
+    # - make sure max_bin_granularity > the max number of possible onsets you might have, otherwise value will be greater than 1
     if method == 'DENSITY':
         total_bin_duration = get_total_bin_duration(beat)
         if total_bin_duration > 0:
@@ -224,11 +222,49 @@ def syncopation_value_beat(beat, method, bin_size, bin_divisions=4, max_bin_gran
 
             # simplified calculation that accounts for rests
             value = float(len([note for note in beat if 'rest' not in note])) / granularity
+    
+
+    # Keith's Measure:
+    # - adapted for bins as it depends on bin_size
     elif method == 'KEITH':
         cur_duration = 0
+        value = 0
         for ni, note in enumerate(bin):
-            if 'rest' in note:
-                print 'REST!'
+            cur_note_on_beat = False
+            next_note_on_beat = False
+            note_duration = int(note['duration'])
+            cur_value = 0
+
+            # is this note on the beat?
+            if 'rest' not in note and cur_duration % bin_size == 0:
+                cur_note_on_beat = True
+
+            # is the next note on the beat?
+            if ni < len(bin) - 1:
+                next_note = bin[ni+1]
+                if 'rest' not in next_note and cur_duration + note_duration % bin_size == 0:
+                    next_note_on_beat = True
+            else:
+                next_note_on_beat = True
+
+
+            # score according to keith's measure
+            if next_note_on_beat:
+                if cur_note_on_beat:
+                    cur_value = 0
+                else:
+                    cur_value = 1
+            else:
+                if cur_note_on_beat:
+                    cur_value = 3
+                else:
+                    cur_value = 4
+
+            cur_value = float(cur_value) / 4 # scale it so value < 1
+            value += cur_value / len(bin)
+
+            cur_duration += note_duration
+
 
     return value
 
