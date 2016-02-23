@@ -110,6 +110,10 @@ duration_to_note_attrs = { # we only support up to 32nd notes
 
 def parse_note(note, prevNoteDur):
     if type(note) is dict or type(note) is collections.OrderedDict: # otherwise it's a rest and we ignore it
+
+        # if 'rest' in note:
+        #     return note
+            
         duration = int(note['duration'])
         diff = prevNoteDur - duration
         print '{} - {} = {}'.format(prevNoteDur, duration, diff)
@@ -155,6 +159,9 @@ def make_data_document(data, label):
 def debug_unparse(data, label):
     return xmltodict.unparse(make_data_document(data, label))
 
+# def remove_rests(note):
+    # return
+
 if __name__ == '__main__':
     score_xml_in_path = sys.argv[1]
     score_xml_out_path = sys.argv[2]
@@ -167,9 +174,11 @@ if __name__ == '__main__':
     score_json = xmltodict.parse(score_xml)
     measures = score_json['score-partwise']['part']['measure'] # a list
     
-    for measure in measures:
+    for mi, measure in enumerate(measures):
         notes = measure['note']
         prevNoteDur = 0
+        print 'num notes before: {}'.format(len(notes))
+
         for ni, note in enumerate(notes):
             print 'note {}:'.format(ni)
             note = parse_note(note, prevNoteDur)
@@ -177,7 +186,22 @@ if __name__ == '__main__':
             if type(note) is dict or type(note) is collections.OrderedDict: # otherwise it's a rest and we ignore it
                 prevNoteDur = int(note['duration'])
             else:
+                print note
                 prevNoteDur = 0
+
+            notes[ni] = note
+
+        # notes = filter(remove_rests, notes)
+        notes = [note for note in notes if (type(note) is dict or type(note) is collections.OrderedDict)]
+
+        print 'num notes after: {}'.format(len(notes))
+        # print notes
+
+        measures[mi]['note'] = notes
+
+
+    print score_json['score-partwise']['part']['measure'][0]['note']
+
 
     print debug_unparse(measures[0]['note'][0], 'note')
 
