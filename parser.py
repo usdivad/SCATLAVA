@@ -3,7 +3,9 @@ import sys
 import xmltodict
 import collections
 
-duration_to_note_attrs = { # we only support up to 32nd notes
+# Default duration -> note_attrs for MusicXML construction and analysis
+# NOTE: here we only support up to 32nd notes
+duration_to_note_attrs = {
     #32nds
     32: {'type': '32nd'},
 
@@ -26,14 +28,14 @@ duration_to_note_attrs = { # we only support up to 32nd notes
     },
 
     # 16ths
-    63: {'type': '16th'},
+    63: {'type': '16th'}, # rounding
     64: {'type': '16th'},
 
     # dotted 16ths
     96: {'type': '16th', 'dot': ''},
 
     # 8th triplets
-    84: {
+    84: {  # rounding
         'type': 'eighth',
         'time-modification': {
             'actual-notes': 3,
@@ -65,7 +67,7 @@ duration_to_note_attrs = { # we only support up to 32nd notes
     129: {'type': 'eighth'}, # for rounding when tripletizing up
 
     # dotted 8ths
-    190: {'type': 'eighth', 'dot': ''},
+    190: {'type': 'eighth', 'dot': ''},  # rounding
     192: {'type': 'eighth', 'dot': ''},
 
     # quarter triplets
@@ -95,8 +97,8 @@ duration_to_note_attrs = { # we only support up to 32nd notes
     },
 
     # quarter
-    252: {'type': 'quarter'},
-    254: {'type': 'quarter'},
+    252: {'type': 'quarter'}, # rounding
+    254: {'type': 'quarter'}, # rounding
     256: {'type': 'quarter'},
 
     # dotted quarter
@@ -112,6 +114,7 @@ duration_to_note_attrs = { # we only support up to 32nd notes
     1024: {'type': 'whole'}
 }
 
+# Augmentation of a note, given several params
 def parse_note(note, prev_note, duration_min, duration_left):
     print '{} left'.format(duration_left)
     if is_valid_note(note): # otherwise it's a deleted and we ignore it
@@ -207,6 +210,7 @@ def note_to_rest(note):
     }
     return rest
 
+# Determine the syncopation value of a beat (bin) via one of several methods
 def syncopation_value_beat(beat, method, bin_size, bin_divisions=4, max_bin_granularity=32):
     value = 0
     granularity = max_bin_granularity / bin_divisions
@@ -322,13 +326,14 @@ if __name__ == '__main__':
 
                 cur_bin_duration = bin_duration
 
-        # output to validate correct binning
+        # output analysis to validate correct binning
         for bi, bin in enumerate(bins):
             total_duration = get_total_bin_duration(bin)
             sync_density = syncopation_value_beat(bin, 'DENSITY', bin_duration, bin_divisions)
             sync_keith = syncopation_value_beat(bin, 'KEITH', bin_duration, bin_divisions)
             print 'beat {}: {} notes, total_duration={}, sync_density={}, sync_keith={}'.format(bi+1, len(bin), total_duration, sync_density, sync_keith)
 
+            
 
         # for bi, bin in enumerate(bins):
 
