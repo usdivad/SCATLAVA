@@ -201,7 +201,7 @@ def add_duration(x,y):
 
 def note_to_rest(note):
     rest = {
-        'rest': '',
+        'rest': None,
         'duration': note['duration'],
         'type': note['type']
     }
@@ -219,8 +219,16 @@ def syncopation_value_beat(beat, method, bin_size, bin_divisions=4, max_bin_gran
     if method == 'DENSITY':
         total_bin_duration = get_total_bin_duration(beat)
         if total_bin_duration > 0:
-            value = float(len(beat)) / total_bin_duration
-            value = value * bin_size / granularity
+            # value = float(len(beat)) / total_bin_duration
+            # value = value * bin_size / granularity
+
+            # simplified calculation that accounts for rests
+            value = float(len([note for note in beat if 'rest' not in note])) / granularity
+    elif method == 'KEITH':
+        cur_duration = 0
+        for ni, note in enumerate(bin):
+            if 'rest' in note:
+                print 'REST!'
 
     return value
 
@@ -238,6 +246,7 @@ if __name__ == '__main__':
 
     score_json = xmltodict.parse(score_xml)
     measures = score_json['score-partwise']['part']['measure'] # a list
+    # print measures[3]
 
     duration_min = 128 # rhythmic granularity of the output score we want
     
@@ -280,8 +289,9 @@ if __name__ == '__main__':
         # output to validate correct binning
         for bi, bin in enumerate(bins):
             total_duration = get_total_bin_duration(bin)
-            syncopation_value = syncopation_value_beat(bin, 'DENSITY', bin_duration, bin_divisions)
-            print 'beat {} has {} notes with a total duration of {} and syncopation value of {}'.format(bi+1, len(bin), total_duration, syncopation_value)
+            sync_density = syncopation_value_beat(bin, 'DENSITY', bin_duration, bin_divisions)
+            sync_keith = syncopation_value_beat(bin, 'KEITH', bin_duration, bin_divisions)
+            print 'beat {}: {} notes, total_duration={}, sync_density={}, sync_keith={}'.format(bi+1, len(bin), total_duration, sync_density, sync_keith)
 
 
         # for bi, bin in enumerate(bins):
