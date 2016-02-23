@@ -196,6 +196,37 @@ def to_note_name(note):
 def is_valid_note(note):
     return type(note) is dict or type(note) is collections.OrderedDict
 
+def add_duration(x,y):
+    return x+y
+
+def note_to_rest(note):
+    rest = {
+        'rest': '',
+        'duration': note['duration'],
+        'type': note['type']
+    }
+    return rest
+
+def syncopation_value_beat(beat, method, bin_size, bin_divisions=4, max_bin_granularity=32):
+    value = 0
+    granularity = max_bin_granularity / bin_divisions
+
+    '''
+    Density algorithm:
+    Essentially calculates onsets over duration
+    Make sure max_bin_granularity > the max number of possible onsets you might have, otherwise value will be greater than 1
+    '''
+    if method == 'DENSITY':
+        total_bin_duration = get_total_bin_duration(beat)
+        if total_bin_duration > 0:
+            value = float(len(beat)) / total_bin_duration
+            value = value * bin_size / granularity
+
+    return value
+
+def get_total_bin_duration(bin):
+    return reduce(add_duration, [int(note['duration']) for note in bin], 0)
+
 if __name__ == '__main__':
     score_xml_in_path = sys.argv[1]
     score_xml_out_path = sys.argv[2]
@@ -231,18 +262,29 @@ if __name__ == '__main__':
         bin_i = 0
         bins = [ [] for i in xrange(bin_divisions) ]
 
+        # separate notes into bins by beat
         for ni, note in enumerate(notes):
             if is_valid_note(note) and 'duration' in note:
                 cur_bin_duration -= int(note['duration'])
                 bins[bin_i].append(note)
-
             if cur_bin_duration <= 0:
+                # print cur_bin_duration
                 bin_i = min(bin_i+1, len(bins)-1)
+
+                while cur_bin_duration < 0: # in cases where a note is longer than a bin size
+                    bin_i = min(bin_i+1, len(bins)-1)
+                    cur_bin_duration += bin_duration
+
                 cur_bin_duration = bin_duration
 
+        # output to validate correct binning
         for bi, bin in enumerate(bins):
-            print 'beat {} has {} notes'.format(bi+1, len(bin))
+            total_duration = get_total_bin_duration(bin)
+            syncopation_value = syncopation_value_beat(bin, 'DENSITY', bin_duration, bin_divisions)
+            print 'beat {} has {} notes with a total duration of {} and syncopation value of {}'.format(bi+1, len(bin), total_duration, syncopation_value)
 
+
+        # for bi, bin in enumerate(bins):
 
 
         # # iterate through notes and adjust durations (or delete note) using parse_note()
