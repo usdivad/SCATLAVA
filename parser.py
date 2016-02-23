@@ -229,45 +229,48 @@ if __name__ == '__main__':
         bin_duration = duration_left / bin_divisions
         cur_bin_duration = bin_duration
         bin_i = 0
-        bin = [ [] for i in xrange(bin_divisions) ]
+        bins = [ [] for i in xrange(bin_divisions) ]
 
-        for note in notes:
+        for ni, note in enumerate(notes):
             if is_valid_note(note) and 'duration' in note:
                 cur_bin_duration -= int(note['duration'])
-            if cur_bin_duration < 0:
-                bin_i = min(bin_i+1, len(bin)-1)
+                bins[bin_i].append(note)
+
+            if cur_bin_duration <= 0:
+                bin_i = min(bin_i+1, len(bins)-1)
                 cur_bin_duration = bin_duration
-            bin[bin_i].append(note)
 
-        print bin[0]
+        for bi, bin in enumerate(bins):
+            print 'beat {} has {} notes'.format(bi+1, len(bin))
 
 
-        # iterate through notes and adjust durations (or delete note) using parse_note()
-        for ni, note in enumerate(notes):
-            print 'note {}:'.format(ni)
-            # note = parse_note(note, prev_note)
-            note = parse_note(note, {'duration': prev_note_dur}, duration_min, duration_left)
 
-            if is_valid_note(note): # otherwise it's a rest and we ignore it
-                duration = int(note['duration'])
-                prev_note_dur = duration
-                duration_left -= duration
-                prev_note = note
-            else:
-                # print note
-                prev_note_dur = 0
-                # duration_left -= note
-                # prev_note['duration'] = 0
+        # # iterate through notes and adjust durations (or delete note) using parse_note()
+        # for ni, note in enumerate(notes):
+        #     print 'note {}:'.format(ni)
+        #     # note = parse_note(note, prev_note)
+        #     note = parse_note(note, {'duration': prev_note_dur}, duration_min, duration_left)
 
-            notes[ni] = note
+        #     if is_valid_note(note): # otherwise it's a rest and we ignore it
+        #         duration = int(note['duration'])
+        #         prev_note_dur = duration
+        #         duration_left -= duration
+        #         prev_note = note
+        #     else:
+        #         # print note
+        #         prev_note_dur = 0
+        #         # duration_left -= note
+        #         # prev_note['duration'] = 0
 
-        # notes = filter(remove_rests, notes)
-        notes = [note for note in notes if (is_valid_note(note))]
+        #     notes[ni] = note
 
-        print 'num notes after: {}'.format(len(notes))
-        # print notes
+        # # notes = filter(remove_rests, notes)
+        # notes = [note for note in notes if (is_valid_note(note))]
 
-        measures[mi]['note'] = notes
+        # print 'num notes after: {}'.format(len(notes))
+        # # print notes
+
+        # measures[mi]['note'] = notes
 
 
     print score_json['score-partwise']['part']['measure'][0]['note']
