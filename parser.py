@@ -119,16 +119,16 @@ duration_to_note_attrs = {
 # 
 
 
-def calculate_values_for_bin(bin, bin_duration, bin_subdivisions):
+def calculate_values_for_bin(bin, bin_duration, bin_subdivisions): # NOTE: only does difficulty using default weights
     density = calculate_value_for_bin(bin, 'DENSITY', bin_duration, bin_divisions)
     syncopation = calculate_value_for_bin(bin, 'SYNCOPATION_KEITH', bin_duration, bin_divisions) # using keith's measure
     coordination = calculate_value_for_bin(bin, 'COORDINATION', bin_duration, bin_divisions)
-    difficulty = calculate_difficulty_from_values(density, syncopation, coordination)
+    # difficulty = calculate_difficulty_from_values(density, syncopation, coordination)
     return {
         'density': density,
         'syncopation': syncopation,
         'coordination': coordination,
-        'difficulty': difficulty
+        # 'difficulty': difficulty
     }
 
 # Calculate overall difficulty of a bin based on d(ensity), s(yncopation), and c(oordination) as well as corresponding w(eights)
@@ -136,10 +136,33 @@ def calculate_difficulty_from_values(d, s, c, w={'d': 0.33, 's': 0.34, 'c': 0.33
     return ( (d*w['d']) + (s*w['s']) + (c*w['c']) )
 
 
-# Adjust the bin!
-def adjust_bin(bin, bin_duration, bin_subdivisions, target_difficulty, weights, user_confidences):
+# Adjust the bin! (recursive)
+def adjust_bin(bin, bin_duration, bin_subdivisions, target_difficulty, weights, gradients):
     bin_values = calculate_values_for_bin(bin, bin_duration, bin_subdivisions)
     cur_difficulty = calculate_difficulty_from_values(bin_values['density'], bin_values['syncopation'], bin_values['coordination'], weights)
+    print 'values: {}, difficulty: {}'.format(bin_values, cur_difficulty)
+
+    if cur_difficulty < target_difficulty:
+        print 'cur difficulty {} < target difficulty {}; returning'.format(cur_difficulty, target_difficulty)
+        return bin
+    else:
+        print 'adjusting bin...'
+        bin = adjust_density(bin, bin_values['density'], gradients['d'])
+        bin = adjust_syncopation(bin, bin_values['syncopation'], gradients['s'])
+        bin = adjust_coordination(bin, bin_values['coordination'], gradients['c'])
+        return adjust_bin(bin, bin_duration, bin_subdivisions, target_difficulty, weights, gradients)
+
+def adjust_density(bin, d, gd):
+    # return d - gd
+    return bin
+
+def adjust_syncopation(bin, s, gs):
+    # return s - gs
+    return bin
+
+def adjust_coordination(bin, c, gc):
+    # return c - gc
+    return bin
 
 
 # Augmentation of a note, given several params
@@ -355,9 +378,9 @@ if __name__ == '__main__':
     # difficulty_gradient = sys.argv[3] # 0 to 1.
     # minimum_difficulty = sys.argv[4]
     # target_difficulty = minimum_difficulty + difficulty_gradient
-    target_difficulty = sys.argv[3] # 0 to 1, as a ratio of the original transcription's difficulty
+    target_difficulty = float(sys.argv[3]) # 0 to 1, as a ratio of the original transcription's difficulty
     weights_str = sys.argv[4] # d,s,c e.g. "0.2,0.1,0.7"
-    user_confidences_str = sys.argv[5] # d,s,c
+    gradients_str = sys.argv[5] # d,s,c
 
     # put weights in {'d': n, 's': n, 'c': n} format
     weights_arr = [float(w) for w in weights_str.split(',')]
@@ -367,14 +390,15 @@ if __name__ == '__main__':
         'c': weights_arr[2]
     }
 
-    # put user_confidences in {'d': n, 's': n, 'c': n} format
-    user_confidences_arr = [float(w) for w in user_confidences_str.split(',')]
-    user_confidences = {
-        'd': user_confidences_arr[0],
-        's': user_confidences_arr[1],
-        'c': user_confidences_arr[2]
+    # put gradients in {'d': n, 's': n, 'c': n} format
+    gradients_arr = [float(w) for w in gradients_str.split(',')]
+    gradients = {
+        'd': gradients_arr[0],
+        's': gradients_arr[1],
+        'c': gradients_arr[2]
     }
 
+    # calculate gradients from user_confidences
 
 
     # load input score as json
@@ -437,7 +461,7 @@ if __name__ == '__main__':
         # create new phrase
         for bi, bin in enumerate(bins):
             # values = calculate_values_for_bin(bin, bin_duration, bin_divisions)
-            bin = adjust_bin(bin, bin_duration, bin_divisions, target_difficulty, weights, user_confidences)
+            bin = adjust_bin(bin, bin_duration, bin_divisions, target_difficulty, weights, gradients)
 
 
         # # iterate through notes and adjust durations (or delete note) using parse_note()
