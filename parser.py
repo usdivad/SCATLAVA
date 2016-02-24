@@ -119,9 +119,27 @@ duration_to_note_attrs = {
 # 
 
 
-# Calculate overall difficulty of a bin based on d(ensity), k(eith), and c(oordination) as well as corresponding w(eights)
-def calculate_difficulty(d, k, c, w={'d': 0.33, 'k': 0.34, 'c': 0.33}):
-    return ( (d*w['d']) + (k*w['k']) + (c*w['c']) )
+def calculate_values_for_bin(bin, bin_duration, bin_subdivisions):
+    density = calculate_value_for_bin(bin, 'DENSITY', bin_duration, bin_divisions)
+    syncopation = calculate_value_for_bin(bin, 'SYNCOPATION_KEITH', bin_duration, bin_divisions) # using keith's measure
+    coordination = calculate_value_for_bin(bin, 'COORDINATION', bin_duration, bin_divisions)
+    difficulty = calculate_difficulty_from_values(density, syncopation, coordination)
+    return {
+        'density': density,
+        'syncopation': syncopation,
+        'coordination': coordination,
+        'difficulty': difficulty
+    }
+
+# Calculate overall difficulty of a bin based on d(ensity), s(yncopation), and c(oordination) as well as corresponding w(eights)
+def calculate_difficulty_from_values(d, s, c, w={'d': 0.33, 's': 0.34, 'c': 0.33}):
+    return ( (d*w['d']) + (s*w['s']) + (c*w['c']) )
+
+
+# Adjust the bin!
+def adjust_bin(bin, bin_duration, bin_subdivisions, target_difficulty, weights, user_confidences):
+    bin_values = calculate_values_for_bin(bin, bin_duration, bin_subdivisions)
+    cur_difficulty = calculate_difficulty_from_values(bin_values['density'], bin_values['syncopation'], bin_values['coordination'], weights)
 
 
 # Augmentation of a note, given several params
@@ -240,9 +258,9 @@ def calculate_value_for_bin(bin, method, bin_size, bin_divisions=4, max_bin_gran
             value = float(len([note for note in bin if 'rest' not in note])) / granularity
     
 
-    # Keith's Measure:
+    # Syncopation (using Keith's measure):
     # - adapted for bins as it depends on bin_size
-    elif method == 'KEITH':
+    elif method == 'SYNCOPATION_KEITH':
         cur_duration = 0
         value = 0
         for ni, note in enumerate(bin):
@@ -288,7 +306,7 @@ def calculate_value_for_bin(bin, method, bin_size, bin_divisions=4, max_bin_gran
     elif method == 'COORDINATION':
         # print bin[0].keys()
         default_xs = [note['@default-x'] for note in bin]
-        print default_xs
+        # print default_xs
         num_notes = len(bin)
         value = 0
         max_simultaneous_limbs = 4 # RH, RF, LH, LF
@@ -330,14 +348,37 @@ def calculate_value_for_bin(bin, method, bin_size, bin_divisions=4, max_bin_gran
 def get_total_bin_duration(bin):
     return reduce(add_duration, [int(note['duration']) for note in bin], 0)
 
+# The main method, to be run with each generation of a new score
 if __name__ == '__main__':
-    score_xml_in_path = sys.argv[1]
-    score_xml_out_path = sys.argv[2]
-    difficulty_gradient = sys.argv[3]
-    minimum_difficulty = sys.argv[4]
+    score_xml_in_path = sys.argv[1] # the original transcription
+    score_xml_out_path = sys.argv[2] # the generated modified score
+    # difficulty_gradient = sys.argv[3] # 0 to 1.
+    # minimum_difficulty = sys.argv[4]
+    # target_difficulty = minimum_difficulty + difficulty_gradient
+    target_difficulty = sys.argv[3] # 0 to 1, as a ratio of the original transcription's difficulty
+    weights_str = sys.argv[4] # d,s,c e.g. "0.2,0.1,0.7"
+    user_confidences_str = sys.argv[5] # d,s,c
 
+    # put weights in {'d': n, 's': n, 'c': n} format
+    weights_arr = [float(w) for w in weights_str.split(',')]
+    weights = {
+        'd': weights_arr[0],
+        's': weights_arr[1],
+        'c': weights_arr[2]
+    }
+
+    # put user_confidences in {'d': n, 's': n, 'c': n} format
+    user_confidences_arr = [float(w) for w in user_confidences_str.split(',')]
+    user_confidences = {
+        'd': user_confidences_arr[0],
+        's': user_confidences_arr[1],
+        'c': user_confidences_arr[2]
+    }
+
+
+
+    # load input score as json
     score_xml = ''
-
     with open(score_xml_in_path, 'r') as f:
         score_xml = f.read()
 
@@ -387,15 +428,16 @@ if __name__ == '__main__':
         for bi, bin in enumerate(bins):
             total_duration = get_total_bin_duration(bin)
             bin_density = calculate_value_for_bin(bin, 'DENSITY', bin_duration, bin_divisions)
-            bin_keith = calculate_value_for_bin(bin, 'KEITH', bin_duration, bin_divisions)
+            bin_keith = calculate_value_for_bin(bin, 'SYNCOPATION_KEITH', bin_duration, bin_divisions)
             bin_coordination = calculate_value_for_bin(bin, 'COORDINATION', bin_duration, bin_divisions)
-            difficulty = calculate_difficulty(bin_density, bin_keith, bin_coordination)
+            difficulty = calculate_difficulty_from_values(bin_density, bin_keith, bin_coordination, weights)
             print 'measure {} beat {}: {} notes, total_duration={}, bin_density={}, bin_keith={}, bin_coordination={}, difficulty={}'.format(mi+1, bi+1, len(bin), total_duration, bin_density, bin_keith, bin_coordination, difficulty)
 
 
         # create new phrase
-        # for bi, bin in enumerate(bins):
-        #     bin = adjust_bin()
+        for bi, bin in enumerate(bins):
+            # values = calculate_values_for_bin(bin, bin_duration, bin_divisions)
+            bin = adjust_bin(bin, bin_duration, bin_divisions, target_difficulty, weights, user_confidences)
 
 
         # # iterate through notes and adjust durations (or delete note) using parse_note()
