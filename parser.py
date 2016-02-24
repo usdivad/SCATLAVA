@@ -146,22 +146,32 @@ def adjust_bin(bin, bin_duration, bin_subdivisions, target_difficulty, weights, 
     if cur_difficulty < target_difficulty:
         print 'cur_difficulty {} < target_difficulty {}; returning'.format(cur_difficulty, target_difficulty)
         return bin
-    elif i > 1: # pretty much guarantees we've hit the bottom
+    elif i > 3: # 10 pretty much guarantees we've hit the bottom
         print 'max runs exceeded! cur_difficulty={}, target_difficulty={}'.format(cur_difficulty, target_difficulty)
         return bin
     else:
         print 'adjusting bin...'
         bin = adjust_density(bin, bin_values['density'], gradients['d'], i)
-        bin = adjust_syncopation(bin, bin_values['syncopation'], gradients['s'], i)
+        # bin = adjust_syncopation(bin, bin_values['syncopation'], gradients['s'], i)
         bin = adjust_coordination(bin, bin_values['coordination'], gradients['c'], i)
-        bin = adjust_for_rests(bin)
+        # bin = adjust_for_rests(bin)
         return adjust_bin(bin, bin_duration, bin_subdivisions, target_difficulty, weights, gradients, i+1)
 
 def adjust_density(bin, d, g, i):
     # return d - g
     adjusted_bin = bin
     if (i*g >= 1):
-        adjusted_bin = bin[:1]
+        # adjusted_bin = bin[:1] # get first element only
+
+        # always remove one note if we have more than one note
+        if len(adjusted_bin) > 2:
+            bi = random.randint(0, len(adjusted_bin) - 1)
+            adjusted_bin[bi]['rest'] = None
+
+            # todo: adjust (reverse tripletize) if it was a triplet and now is eighth note!
+            #       and adjust for rests? or that can come later
+            #       AND make sure it doesn't result in an empty bin... (use filter in line 167 such that only valid notes are counted!)
+
         print 'density adjusted for run {}'.format(i)
     return adjusted_bin
 
@@ -171,9 +181,6 @@ def adjust_syncopation(bin, s, g, i):
     if (i*g >= 1):
         # adjusted_bin = bin[:1] # get first element only
 
-        bi = random.randint(0, len(adjusted_bin) - 1)
-        adjusted_bin[bi]['rest'] = None
-
         print 'syncopation adjusted for run {}'.format(i)
     return adjusted_bin
 
@@ -181,7 +188,7 @@ def adjust_coordination(bin, c, g, i):
     # return c - g
     adjusted_bin = bin
     if (i*g >= 1):
-        adjusted_bin = bin[:1]
+        # adjusted_bin = bin[:1]
         print 'coordination adjusted for run {}'.format(i)
     return adjusted_bin
 
@@ -544,5 +551,3 @@ if __name__ == '__main__':
 
     with open(score_xml_out_path, 'w') as f:
         xmltodict.unparse(score_json, output=f, pretty=True)
-
-end
