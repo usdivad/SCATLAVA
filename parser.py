@@ -2,6 +2,7 @@ import bs4
 import sys
 import xmltodict
 import collections
+import random
 
 # Default duration -> note_attrs for MusicXML construction and analysis
 # NOTE: here we only support up to 32nd notes
@@ -137,33 +138,69 @@ def calculate_difficulty_from_values(d, s, c, w={'d': 0.33, 's': 0.34, 'c': 0.33
 
 
 # Adjust the bin! (recursive)
-def adjust_bin(bin, bin_duration, bin_subdivisions, target_difficulty, weights, gradients):
+def adjust_bin(bin, bin_duration, bin_subdivisions, target_difficulty, weights, gradients, i=0):
     bin_values = calculate_values_for_bin(bin, bin_duration, bin_subdivisions)
     cur_difficulty = calculate_difficulty_from_values(bin_values['density'], bin_values['syncopation'], bin_values['coordination'], weights)
-    print 'values: {}, difficulty: {}'.format(bin_values, cur_difficulty)
+    print '{} -- values: {}, difficulty: {}'.format(i, bin_values, cur_difficulty)
 
     if cur_difficulty < target_difficulty:
-        print 'cur difficulty {} < target difficulty {}; returning'.format(cur_difficulty, target_difficulty)
+        print 'cur_difficulty {} < target_difficulty {}; returning'.format(cur_difficulty, target_difficulty)
+        return bin
+    elif i > 1: # pretty much guarantees we've hit the bottom
+        print 'max runs exceeded! cur_difficulty={}, target_difficulty={}'.format(cur_difficulty, target_difficulty)
         return bin
     else:
         print 'adjusting bin...'
-        bin = adjust_density(bin, bin_values['density'], gradients['d'])
-        bin = adjust_syncopation(bin, bin_values['syncopation'], gradients['s'])
-        bin = adjust_coordination(bin, bin_values['coordination'], gradients['c'])
-        return adjust_bin(bin, bin_duration, bin_subdivisions, target_difficulty, weights, gradients)
+        bin = adjust_density(bin, bin_values['density'], gradients['d'], i)
+        bin = adjust_syncopation(bin, bin_values['syncopation'], gradients['s'], i)
+        bin = adjust_coordination(bin, bin_values['coordination'], gradients['c'], i)
+        bin = adjust_for_rests(bin)
+        return adjust_bin(bin, bin_duration, bin_subdivisions, target_difficulty, weights, gradients, i+1)
 
-def adjust_density(bin, d, gd):
-    # return d - gd
-    return bin
+def adjust_density(bin, d, g, i):
+    # return d - g
+    adjusted_bin = bin
+    if (i*g >= 1):
+        adjusted_bin = bin[:1]
+        print 'density adjusted for run {}'.format(i)
+    return adjusted_bin
 
-def adjust_syncopation(bin, s, gs):
-    # return s - gs
-    return bin
+def adjust_syncopation(bin, s, g, i):
+    # return s - g
+    adjusted_bin = bin
+    if (i*g >= 1):
+        # adjusted_bin = bin[:1] # get first element only
 
-def adjust_coordination(bin, c, gc):
-    # return c - gc
-    return bin
+        bi = random.randint(0, len(adjusted_bin) - 1)
+        adjusted_bin[bi]['rest'] = None
 
+        print 'syncopation adjusted for run {}'.format(i)
+    return adjusted_bin
+
+def adjust_coordination(bin, c, g, i):
+    # return c - g
+    adjusted_bin = bin
+    if (i*g >= 1):
+        adjusted_bin = bin[:1]
+        print 'coordination adjusted for run {}'.format(i)
+    return adjusted_bin
+
+def adjust_for_rests(bin):
+    adjusted_bin = bin
+    for i, note in enumerate(bin):
+        print 'note {}:'.format(i)
+        if is_valid_note(note):
+            new_note_duration = note['duration']
+            if i < len(bin)-1:
+                ni = i + 1
+                while is_valid_note(bin[ni]) and 'rest' in bin[ni] and ni < len(bin)-1:
+                    new_note_duration += bin[ni]['duration']
+                    bin[ni] = 'rest'
+                    # bin[ni]['rest'] = None
+                    ni += 1
+                note['duration'] = new_note_duration
+                bin[i] = note
+    return adjusted_bin
 
 # Augmentation of a note, given several params
 def parse_note(note, prev_note, duration_min, duration_left):
@@ -289,7 +326,7 @@ def calculate_value_for_bin(bin, method, bin_size, bin_divisions=4, max_bin_gran
         for ni, note in enumerate(bin):
             cur_note_on_beat = False
             next_note_on_beat = False
-            note_duration = int(note['duration'])
+            note_duration = int(note['duration']) if is_valid_note(note) else 0
             cur_value = 0
 
             # is this note on the beat?
@@ -328,7 +365,7 @@ def calculate_value_for_bin(bin, method, bin_size, bin_divisions=4, max_bin_gran
     
     elif method == 'COORDINATION':
         # print bin[0].keys()
-        default_xs = [note['@default-x'] for note in bin]
+        default_xs = [note['@default-x'] if is_valid_note(note) else None for note in bin]
         # print default_xs
         num_notes = len(bin)
         value = 0
@@ -340,7 +377,7 @@ def calculate_value_for_bin(bin, method, bin_size, bin_divisions=4, max_bin_gran
             next_note_name = cur_note_name
             prev_note_name = cur_note_name
 
-            simultaneous_onsets = len(filter(lambda x: x == note['@default-x'], default_xs))
+            simultaneous_onsets = len(filter(lambda x: is_valid_note(note) and x == note['@default-x'], default_xs))
             # print simultaneous_onsets
 
             if ni < num_notes - 1:
@@ -369,7 +406,7 @@ def calculate_value_for_bin(bin, method, bin_size, bin_divisions=4, max_bin_gran
     return value
 
 def get_total_bin_duration(bin):
-    return reduce(add_duration, [int(note['duration']) for note in bin], 0)
+    return reduce(add_duration, [int(note['duration']) if is_valid_note(note) else 0 for note in bin], 0)
 
 # The main method, to be run with each generation of a new score
 if __name__ == '__main__':
@@ -462,6 +499,13 @@ if __name__ == '__main__':
         for bi, bin in enumerate(bins):
             # values = calculate_values_for_bin(bin, bin_duration, bin_divisions)
             bin = adjust_bin(bin, bin_duration, bin_divisions, target_difficulty, weights, gradients)
+            bins[bi] = bin
+
+
+        # new notes
+        notes = []
+        for bin in bins:
+            notes += bin
 
 
         # # iterate through notes and adjust durations (or delete note) using parse_note()
@@ -486,12 +530,13 @@ if __name__ == '__main__':
         # # notes = filter(remove_rests, notes)
         # notes = [note for note in notes if (is_valid_note(note))]
 
-        # print 'num notes after: {}'.format(len(notes))
-        # # print notes
+        print 'num notes after: {}'.format(len(notes))
+        # print notes
 
-        # measures[mi]['note'] = notes
+        measures[mi]['note'] = notes
 
 
+    print '\n\n'
     print score_json['score-partwise']['part']['measure'][0]['note']
 
 
@@ -500,4 +545,4 @@ if __name__ == '__main__':
     with open(score_xml_out_path, 'w') as f:
         xmltodict.unparse(score_json, output=f, pretty=True)
 
-# end
+end
