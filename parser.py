@@ -250,8 +250,44 @@ def adjust_syncopation(bin, s, g, i):
 def adjust_coordination(bin, c, g, i):
     # return c - g
     adjusted_bin = bin
+    adjusted = False
     if (i*g >= 1):
-        # adjusted_bin = bin[:1]
+        # make sure there are actual onsets in the bin
+        filtered_bin = filter_bin(adjusted_bin)
+        if len(filtered_bin) < 1:
+            return adjusted_bin
+
+        # adjust one note
+        while not adjusted: 
+            ni = random.randint(0, len(adjusted_bin)-1)
+            note = adjusted_bin[ni]
+            if is_onset_note(note):
+                subsequent_onsets = filter_bin(adjusted_bin[ni:])
+                previous_onsets = filter_bin(adjusted_bin[:ni])
+
+                # change note to next note
+                if len(subsequent_onsets) > 0 and len(previous_onsets) > 0: # choose between next and prev note
+                    note_choices = [subsequent_onsets[0], previous_onsets[0]]
+                    note = update_pitch(note, random.choice(note_choices))
+                    adjusted = True
+                elif len(subsequent_onsets) > 0: # next note
+                    note = update_pitch(note, subsequent_onsets[0])
+                    adjusted = True
+                elif len(previous_onsets) > 0: # prev note
+                    note = update_pitch(note, previous_onsets[0])
+                    adjusted = True
+
+                # and remove a simultaneous note
+                if adjusted:
+                    remove_simultaneous_note = random.choice([True, False])
+                    # remove_simultaneous_note = True
+                    if remove_simultaneous_note and ni < len(adjusted_bin)-1:
+                        next_note = adjusted_bin[ni+1]
+                        if is_onset_note(next_note) and next_note['@default-x'] == note['@default-x']: # simultaneous
+                            adjusted_bin = adjusted_bin[:ni] + adjusted_bin[ni+1:]
+
+
+            adjusted_bin[ni] = note
 
         print 'coordination adjusted for run {}'.format(i)
     return adjusted_bin
@@ -295,11 +331,21 @@ def get_polyphonic_bin_density(bin):
             size += 1
     return size
 
+# swap two elements in a list
 def swap(bin, i, j):
     tmp = bin[i]
     bin[i] = bin[j]
     bin[j] = tmp
     return bin
+
+# update the pitch of note to that of note_new
+def update_pitch(note, note_new):
+    note['unpitched']['display-step'] = note_new['unpitched']['display-step']
+    note['unpitched']['display-octave'] = note_new['unpitched']['display-octave']
+    if 'notehead' in note_new:
+        note['notehead'] = note_new['notehead']
+        # print '{} == {}'.format(note['notehead'], note_new['notehead'])
+    return note
 
 # Augmentation of a note, given several params
 def parse_note(note, prev_note, duration_min, duration_left):
