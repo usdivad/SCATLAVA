@@ -4,6 +4,10 @@ import xmltodict
 import collections
 import random
 
+note_type_to_duration = {
+    '32nd': 32
+}
+
 # Default duration -> note_attrs for MusicXML construction and analysis
 # NOTE: here we only support up to 32nd notes
 duration_to_note_attrs = {
@@ -169,8 +173,8 @@ def adjust_density(bin, d, g, i):
     adjusted_bin = bin
     if (i*g >= 1):
         # adjusted_bin = bin[:1] # get first element only
-        filtered_bin = filter(lambda n: is_valid_note(n) and 'rest' not in n, adjusted_bin)
-        print filtered_bin
+        filtered_bin = filter_bin(adjusted_bin)
+        # print filtered_bin
         # filtered_bin_size = reduce(lambda x, y: 1 if x['@default-x'] != y['@default-x'] else 0, filtered_bin, 0)
         filtered_bin_size = get_polyphonic_bin_density(filtered_bin)
         # print filtered_bin
@@ -190,9 +194,33 @@ def adjust_density(bin, d, g, i):
 
 def adjust_syncopation(bin, s, g, i):
     # return s - g
+    dice = random.random()
+    # adjust = dice < s # the more syncopated a bin already is, the greater chance of adjustment
+    adjust = True
     adjusted_bin = bin
-    if (i*g >= 1):
+    print s
+    if i*g >= 1 and adjust:
+        filtered_bin = filter_bin(adjusted_bin)
         first_note = adjusted_bin[0]
+        first_onset_index = -1
+        fi = 0
+
+        # find the first onset index
+        while first_onset_index < 0 and fi < len(adjusted_bin):
+            note = adjusted_bin[fi]
+            if is_onset_note(note):
+                first_onset_index = fi
+            fi += 1
+
+        # swap first note with first onset
+        adjusted_bin[0] = adjusted_bin[first_onset_index]
+        adjusted_bin[first_onset_index] = first_note        
+
+        # some engraving prettifying
+        adjusted_bin[0]['beam'] = None
+
+        # todo: adjust subdivision? esp for 8th triplets and such
+
         # while ( (not is_valid_note(adjusted_bin[0])) or 'rest' in adjusted_bin[0] ) and len(adjusted_bin) > 1:
         #     adjusted_bin = adjusted_bin[1:]
         # for ni, note in enumerate(adjusted_bin):
@@ -210,6 +238,13 @@ def adjust_coordination(bin, c, g, i):
         print 'coordination adjusted for run {}'.format(i)
     return adjusted_bin
 
+
+# scale subdivisions up by one (so 16ths -> 8th triplets)
+# dummy for now
+def adjust_subdivisions(bin):
+    return bin
+
+# adjust note lengths
 def adjust_for_rests(bin):
     adjusted_bin = bin
     for i, note in enumerate(bin):
@@ -226,6 +261,13 @@ def adjust_for_rests(bin):
                 note['duration'] = new_note_duration
                 bin[i] = note
     return adjusted_bin
+
+# strip rests from bin
+def filter_bin(bin):
+    return filter(lambda note: is_onset_note(note), bin)
+
+def is_onset_note(note):
+    return is_valid_note(note) and 'rest' not in note
 
 # returns size of bin, treating simultaneous onsets as ONE single note
 def get_polyphonic_bin_density(bin):
