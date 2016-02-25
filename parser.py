@@ -181,7 +181,7 @@ def adjust_density(bin, d, g, i):
 
         # always remove one note if we have more than one note
         if filtered_bin_size > 1 and len(adjusted_bin) > 1:
-            bi = random.randint(0, len(adjusted_bin) - 1)
+            bi = random.randint(1, len(adjusted_bin) - 1) # we avoid removing the first note
             adjusted_bin[bi]['rest'] = None
 
             # todo: adjust (reverse tripletize) if it was a triplet and now is eighth note!
