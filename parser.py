@@ -141,12 +141,12 @@ def calculate_difficulty_from_values(d, s, c, w={'d': 0.33, 's': 0.34, 'c': 0.33
 def adjust_bin(bin, bin_duration, bin_subdivisions, target_difficulty, weights, gradients, i=0):
     bin_values = calculate_values_for_bin(bin, bin_duration, bin_subdivisions)
     cur_difficulty = calculate_difficulty_from_values(bin_values['density'], bin_values['syncopation'], bin_values['coordination'], weights)
-    print '{} -- values: {}, difficulty: {}'.format(i, bin_values, cur_difficulty)
+    print '{} -> values: {}, difficulty: {}'.format(i, bin_values, cur_difficulty)
 
     if cur_difficulty < target_difficulty:
         print 'cur_difficulty {} < target_difficulty {}; returning'.format(cur_difficulty, target_difficulty)
         return bin
-    elif i > 3: # 10 pretty much guarantees we've hit the bottom
+    elif i > 10: # 10 pretty much guarantees we've hit the bottom
         print 'max runs exceeded! cur_difficulty={}, target_difficulty={}'.format(cur_difficulty, target_difficulty)
         return bin
     else:
@@ -162,15 +162,19 @@ def adjust_density(bin, d, g, i):
     adjusted_bin = bin
     if (i*g >= 1):
         # adjusted_bin = bin[:1] # get first element only
+        filtered_bin = filter(lambda n: is_valid_note(n) and 'rest' not in n, adjusted_bin)
+        print filtered_bin
 
         # always remove one note if we have more than one note
-        if len(adjusted_bin) > 2:
+        if len(filtered_bin) > 1 and len(adjusted_bin) > 1:
             bi = random.randint(0, len(adjusted_bin) - 1)
             adjusted_bin[bi]['rest'] = None
 
             # todo: adjust (reverse tripletize) if it was a triplet and now is eighth note!
             #       and adjust for rests? or that can come later
             #       AND make sure it doesn't result in an empty bin... (use filter in line 167 such that only valid notes are counted!)
+        else:
+            print 'only {} elements in filtered bin (though adjusted bin has {} elements)'.format(len(filtered_bin), len(adjusted_bin))
 
         print 'density adjusted for run {}'.format(i)
     return adjusted_bin
@@ -478,10 +482,13 @@ if __name__ == '__main__':
         bins = [ [] for i in xrange(bin_divisions) ]
 
         # separate notes into bins by beat
+        prev_x = 0
         for ni, note in enumerate(notes):
             if is_valid_note(note) and 'duration' in note:
-                cur_bin_duration -= int(note['duration'])
+                if ni < len(notes)-1 and note['@default-x'] != notes[ni+1]['@default-x']: # don't increment duration if it's simultaneous onset
+                    cur_bin_duration -= int(note['duration'])
                 bins[bin_i].append(note)
+                prev_x = note['@default-x']
             if cur_bin_duration <= 0:
                 # print cur_bin_duration
                 bin_i = min(bin_i+1, len(bins)-1)
@@ -505,6 +512,7 @@ if __name__ == '__main__':
         # create new phrase
         for bi, bin in enumerate(bins):
             # values = calculate_values_for_bin(bin, bin_duration, bin_divisions)
+            print '=== measure {} beat {} ==='.format(mi, bi)
             bin = adjust_bin(bin, bin_duration, bin_divisions, target_difficulty, weights, gradients)
             bins[bi] = bin
 
