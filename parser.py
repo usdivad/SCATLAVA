@@ -120,7 +120,7 @@ duration_to_note_attrs = {
 # 
 
 
-def calculate_values_for_bin(bin, bin_duration, bin_subdivisions): # NOTE: only does difficulty using default weights
+def calculate_values_for_bin(bin, bin_duration, bin_divisions): # NOTE: only does difficulty using default weights
     density = calculate_value_for_bin(bin, 'DENSITY', bin_duration, bin_divisions)
     syncopation = calculate_value_for_bin(bin, 'SYNCOPATION_KEITH', bin_duration, bin_divisions) # using keith's measure
     coordination = calculate_value_for_bin(bin, 'COORDINATION', bin_duration, bin_divisions)
@@ -138,8 +138,15 @@ def calculate_difficulty_from_values(d, s, c, w={'d': 0.33, 's': 0.34, 'c': 0.33
 
 
 # Adjust the bin! (recursive)
-def adjust_bin(bin, bin_duration, bin_subdivisions, target_difficulty, weights, gradients, i=0):
-    bin_values = calculate_values_for_bin(bin, bin_duration, bin_subdivisions)
+#   bin to adjust
+#   bin_duration in MusicXML format (1024 = whole note)
+#   bin_divisions: total number of bins in a measure
+#   target_difficulty (0 to 1, expressed as a ratio to current bin difficulty)
+#   weights in form {'d': x, 's': y, 'c': z}, where x+y+z = 1 and 0 < x,y,z < 1
+#   gradients in same form as above
+#   i (index of current adjustment run)
+def adjust_bin(bin, bin_duration, bin_divisions, target_difficulty, weights, gradients, i=0):
+    bin_values = calculate_values_for_bin(bin, bin_duration, bin_divisions)
     cur_difficulty = calculate_difficulty_from_values(bin_values['density'], bin_values['syncopation'], bin_values['coordination'], weights)
     print '{} -> values: {}, difficulty: {}'.format(i, bin_values, cur_difficulty)
 
@@ -150,12 +157,12 @@ def adjust_bin(bin, bin_duration, bin_subdivisions, target_difficulty, weights, 
         print 'max runs exceeded! cur_difficulty={}, target_difficulty={}'.format(cur_difficulty, target_difficulty)
         return bin
     else:
-        print 'adjusting bin...'
+        # print 'adjusting bin...'
         bin = adjust_density(bin, bin_values['density'], gradients['d'], i)
-        # bin = adjust_syncopation(bin, bin_values['syncopation'], gradients['s'], i)
+        bin = adjust_syncopation(bin, bin_values['syncopation'], gradients['s'], i)
         bin = adjust_coordination(bin, bin_values['coordination'], gradients['c'], i)
         # bin = adjust_for_rests(bin)
-        return adjust_bin(bin, bin_duration, bin_subdivisions, target_difficulty, weights, gradients, i+1)
+        return adjust_bin(bin, bin_duration, bin_divisions, target_difficulty, weights, gradients, i+1)
 
 def adjust_density(bin, d, g, i):
     # return d - g
@@ -164,15 +171,17 @@ def adjust_density(bin, d, g, i):
         # adjusted_bin = bin[:1] # get first element only
         filtered_bin = filter(lambda n: is_valid_note(n) and 'rest' not in n, adjusted_bin)
         print filtered_bin
+        # filtered_bin_size = reduce(lambda x, y: 1 if x['@default-x'] != y['@default-x'] else 0, filtered_bin, 0)
+        filtered_bin_size = get_polyphonic_bin_density(filtered_bin)
+        # print filtered_bin
 
         # always remove one note if we have more than one note
-        if len(filtered_bin) > 1 and len(adjusted_bin) > 1:
+        if filtered_bin_size > 1 and len(adjusted_bin) > 1:
             bi = random.randint(0, len(adjusted_bin) - 1)
             adjusted_bin[bi]['rest'] = None
 
             # todo: adjust (reverse tripletize) if it was a triplet and now is eighth note!
             #       and adjust for rests? or that can come later
-            #       AND make sure it doesn't result in an empty bin... (use filter in line 167 such that only valid notes are counted!)
         else:
             print 'only {} elements in filtered bin (though adjusted bin has {} elements)'.format(len(filtered_bin), len(adjusted_bin))
 
@@ -183,7 +192,11 @@ def adjust_syncopation(bin, s, g, i):
     # return s - g
     adjusted_bin = bin
     if (i*g >= 1):
-        # adjusted_bin = bin[:1] # get first element only
+        first_note = adjusted_bin[0]
+        # while ( (not is_valid_note(adjusted_bin[0])) or 'rest' in adjusted_bin[0] ) and len(adjusted_bin) > 1:
+        #     adjusted_bin = adjusted_bin[1:]
+        # for ni, note in enumerate(adjusted_bin):
+        #     if is_valid_note(note) and 'rest' not in note:
 
         print 'syncopation adjusted for run {}'.format(i)
     return adjusted_bin
@@ -193,6 +206,7 @@ def adjust_coordination(bin, c, g, i):
     adjusted_bin = bin
     if (i*g >= 1):
         # adjusted_bin = bin[:1]
+
         print 'coordination adjusted for run {}'.format(i)
     return adjusted_bin
 
@@ -212,6 +226,14 @@ def adjust_for_rests(bin):
                 note['duration'] = new_note_duration
                 bin[i] = note
     return adjusted_bin
+
+# returns size of bin, treating simultaneous onsets as ONE single note
+def get_polyphonic_bin_density(bin):
+    size = 0
+    for i, note in enumerate(bin):
+        if i == 0 or note['@default-x'] != bin[i-1]['@default-x']:
+            size += 1
+    return size
 
 # Augmentation of a note, given several params
 def parse_note(note, prev_note, duration_min, duration_left):
@@ -457,11 +479,14 @@ if __name__ == '__main__':
     score_json = xmltodict.parse(score_xml)
     measures = score_json['score-partwise']['part']['measure'] # a list
     # print measures[3]
+    if type(measures) != list: # 0 or 1 measures
+        measures = [measures]
 
     duration_min = 128 # rhythmic granularity of the output score we want
     
     # iterate through measures
     for mi, measure in enumerate(measures):
+        # print measure
         notes = measure['note']
         prev_note_dur = 0
         prev_note = {
@@ -512,7 +537,7 @@ if __name__ == '__main__':
         # create new phrase
         for bi, bin in enumerate(bins):
             # values = calculate_values_for_bin(bin, bin_duration, bin_divisions)
-            print '=== measure {} beat {} ==='.format(mi, bi)
+            print '\n=== measure {} beat {} ==='.format(mi, bi)
             bin = adjust_bin(bin, bin_duration, bin_divisions, target_difficulty, weights, gradients)
             bins[bi] = bin
 
@@ -552,7 +577,7 @@ if __name__ == '__main__':
 
 
     print '\n\n'
-    print score_json['score-partwise']['part']['measure'][0]['note']
+    # print score_json['score-partwise']['part']['measure'][0]['note']
 
 
     print debug_unparse(measures[0]['note'][0], 'note')
