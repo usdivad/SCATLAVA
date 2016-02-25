@@ -203,18 +203,36 @@ def adjust_syncopation(bin, s, g, i):
         filtered_bin = filter_bin(adjusted_bin)
         first_note = adjusted_bin[0]
         first_onset_index = -1
-        fi = 0
+        oi = 0
+        simultaneous_first_onsets_offset = 1
 
         # find the first onset index
-        while first_onset_index < 0 and fi < len(adjusted_bin):
-            note = adjusted_bin[fi]
+        while first_onset_index < 0 and oi < len(adjusted_bin):
+            note = adjusted_bin[oi]
             if is_onset_note(note):
-                first_onset_index = fi
-            fi += 1
+                first_onset_index = oi
+            oi += 1
 
         # swap first note with first onset
-        adjusted_bin[0] = adjusted_bin[first_onset_index]
-        adjusted_bin[first_onset_index] = first_note        
+        adjusted_bin = swap(adjusted_bin, 0, first_onset_index)
+
+        # swap any simultaneous onsets corresponding to the new first onset
+        while simultaneous_first_onsets_offset > 0 and first_onset_index + simultaneous_first_onsets_offset < len(adjusted_bin):
+            si = first_onset_index + simultaneous_first_onsets_offset
+            note = adjusted_bin[si]
+            
+            if is_onset_note(note):
+                first_x = adjusted_bin[0]['@default-x']
+                note_x = note['@default-x']
+                print '{},{}'.format(first_x, note_x)
+                if note_x == first_x:
+                    swap(adjusted_bin, simultaneous_first_onsets_offset, si)
+                    simultaneous_first_onsets_offset += 1
+                else:
+                    simultaneous_first_onsets_offset = -1
+            else:
+                simultaneous_first_onsets_offset = -1
+
 
         # some engraving prettifying
         adjusted_bin[0]['beam'] = None
@@ -276,6 +294,12 @@ def get_polyphonic_bin_density(bin):
         if i == 0 or note['@default-x'] != bin[i-1]['@default-x']:
             size += 1
     return size
+
+def swap(bin, i, j):
+    tmp = bin[i]
+    bin[i] = bin[j]
+    bin[j] = tmp
+    return bin
 
 # Augmentation of a note, given several params
 def parse_note(note, prev_note, duration_min, duration_left):
