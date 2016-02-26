@@ -149,7 +149,7 @@ def calculate_difficulty_from_values(d, s, c, w={'d': 0.33, 's': 0.34, 'c': 0.33
 #   weights in form {'d': x, 's': y, 'c': z}, where x+y+z = 1 and 0 < x,y,z < 1
 #   gradients in same form as above
 #   i (index of current adjustment run)
-def adjust_bin(bin, bin_duration, bin_divisions, target_difficulty, weights, gradients, i=0):
+def adjust_bin(bin, bin_duration, bin_divisions, target_difficulty, weights, gradients, stochastic_modifier, i=0):
     bin_values = calculate_values_for_bin(bin, bin_duration, bin_divisions)
     cur_difficulty = calculate_difficulty_from_values(bin_values['density'], bin_values['syncopation'], bin_values['coordination'], weights)
     print '{} -> values: {}, difficulty: {}'.format(i, bin_values, cur_difficulty)
@@ -162,16 +162,18 @@ def adjust_bin(bin, bin_duration, bin_divisions, target_difficulty, weights, gra
         return bin
     else:
         # print 'adjusting bin...'
-        bin = adjust_density(bin, bin_values['density'], gradients['d'], i)
-        bin = adjust_syncopation(bin, bin_values['syncopation'], gradients['s'], i)
-        bin = adjust_coordination(bin, bin_values['coordination'], gradients['c'], i)
+        bin = adjust_density(bin, bin_values['density'], gradients['d'], stochastic_modifier, i)
+        bin = adjust_syncopation(bin, bin_values['syncopation'], gradients['s'], stochastic_modifier, i)
+        bin = adjust_coordination(bin, bin_values['coordination'], gradients['c'], stochastic_modifier, i)
         # bin = adjust_for_rests(bin)
-        return adjust_bin(bin, bin_duration, bin_divisions, target_difficulty, weights, gradients, i+1)
+        return adjust_bin(bin, bin_duration, bin_divisions, target_difficulty, weights, gradients, stochastic_modifier, i+1)
 
-def adjust_density(bin, d, g, i):
+def adjust_density(bin, d, g, sm, i):
     # return d - g
     adjusted_bin = bin
-    if (i*g >= 1):
+    # adjust = random.choice([True, False])
+    adjust = random.random() < sm
+    if (i*g >= 1) and adjust:
         # adjusted_bin = bin[:1] # get first element only
         filtered_bin = filter_bin(adjusted_bin)
         # print filtered_bin
@@ -192,11 +194,13 @@ def adjust_density(bin, d, g, i):
         print 'density adjusted for run {}'.format(i)
     return adjusted_bin
 
-def adjust_syncopation(bin, s, g, i):
+def adjust_syncopation(bin, s, g, sm, i):
     # return s - g
-    dice = random.random()
+    # dice = random.random()
     # adjust = dice < s # the more syncopated a bin already is, the greater chance of adjustment
-    adjust = True
+    # adjust = True
+    # adjust = random.choice([True, False])
+    adjust = random.random() < sm
     adjusted_bin = bin
     print s
     if i*g >= 1 and adjust:
@@ -247,11 +251,13 @@ def adjust_syncopation(bin, s, g, i):
         print 'syncopation adjusted for run {}'.format(i)
     return adjusted_bin
 
-def adjust_coordination(bin, c, g, i):
+def adjust_coordination(bin, c, g, sm, i):
     # return c - g
     adjusted_bin = bin
     adjusted = False
-    if (i*g >= 1):
+    # adjust = random.choice([True, False])
+    adjust = random.random() < sm
+    if (i*g >= 1) and adjust:
         # make sure there are actual onsets in the bin
         filtered_bin = filter_bin(adjusted_bin)
         if len(filtered_bin) < 1:
@@ -279,7 +285,8 @@ def adjust_coordination(bin, c, g, i):
 
                 # and remove a simultaneous note
                 if adjusted:
-                    remove_simultaneous_note = random.choice([True, False])
+                    # remove_simultaneous_note = random.choice([True, False])
+                    remove_simultaneous_note = random.random() < sm
                     # remove_simultaneous_note = True
                     if remove_simultaneous_note and ni < len(adjusted_bin)-1:
                         next_note = adjusted_bin[ni+1]
@@ -564,6 +571,8 @@ if __name__ == '__main__':
     target_difficulty = float(sys.argv[3]) # 0 to 1, as a ratio of the original transcription's difficulty
     weights_str = sys.argv[4] # d,s,c e.g. "0.2,0.1,0.7"
     gradients_str = sys.argv[5] # d,s,c
+    bin_divisions = int(sys.argv[6])
+    stochastic_modifier = float(sys.argv[7])
 
     # put weights in {'d': n, 's': n, 'c': n} format
     weights_arr = [float(w) for w in weights_str.split(',')]
@@ -619,7 +628,7 @@ if __name__ == '__main__':
         measure_difficulty = 0
 
         # another approach: binning
-        bin_divisions = 8
+        # bin_divisions = 4
         bin_duration = duration_left / bin_divisions
         cur_bin_duration = bin_duration
         bin_i = 0
@@ -659,14 +668,18 @@ if __name__ == '__main__':
             print 'measure {} beat {}: {} notes, total_duration={}, bin_density={}, bin_keith={}, bin_coordination={}, difficulty={}'.format(mi+1, bi+1, len(bin), total_duration, bin_density, bin_keith, bin_coordination, difficulty)
 
         print 'measure {} overall d={}, s={}, c={}, D={} (b={})'.format(mi+1, measure_density, measure_syncopation, measure_coordination, measure_difficulty, bin_divisions)
-        exit(0)
+        # exit(0)
 
         # create new phrase
         print '\n\n...\nCREATING NEW PHRASE\n...\n'
         for bi, bin in enumerate(bins):
-            # values = calculate_values_for_bin(bin, bin_duration, bin_divisions)
+            values = calculate_values_for_bin(bin, bin_duration, bin_divisions)
+            difficulty = calculate_difficulty_from_values(values['density'], values['syncopation'], values['coordination'], weights)
+
             print '\n=== measure {} beat {} ==='.format(mi+1, bi+1)
-            bin = adjust_bin(bin, bin_duration, bin_divisions, target_difficulty, weights, gradients)
+
+            if difficulty > 0:
+                bin = adjust_bin(bin, bin_duration, bin_divisions, target_difficulty*difficulty, weights, gradients, stochastic_modifier)
             bins[bi] = bin
 
 
