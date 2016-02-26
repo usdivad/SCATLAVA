@@ -512,6 +512,7 @@ def calculate_value_for_bin(bin, method, bin_size, bin_divisions=4, max_bin_gran
         # print bin[0].keys()
         default_xs = [note['@default-x'] if is_valid_note(note) else None for note in bin]
         # print default_xs
+        # print '{} vs {}'.format(len(default_xs), len(bin))
         num_notes = len(bin)
         value = 0
         max_simultaneous_limbs = 4 # RH, RF, LH, LF
@@ -611,8 +612,14 @@ if __name__ == '__main__':
         duration_left = 1024 # default measure length in 4/4
         print 'num notes before: {}'.format(len(notes))
 
+        # measure values
+        measure_density = 0
+        measure_syncopation = 0
+        measure_coordination = 0
+        measure_difficulty = 0
+
         # another approach: binning
-        bin_divisions = 4
+        bin_divisions = 8
         bin_duration = duration_left / bin_divisions
         cur_bin_duration = bin_duration
         bin_i = 0
@@ -643,13 +650,22 @@ if __name__ == '__main__':
             bin_keith = calculate_value_for_bin(bin, 'SYNCOPATION_KEITH', bin_duration, bin_divisions)
             bin_coordination = calculate_value_for_bin(bin, 'COORDINATION', bin_duration, bin_divisions)
             difficulty = calculate_difficulty_from_values(bin_density, bin_keith, bin_coordination, weights)
+
+            measure_density += bin_density / bin_divisions
+            measure_syncopation += bin_keith / bin_divisions
+            measure_coordination += bin_coordination / bin_divisions
+            measure_difficulty += difficulty / bin_divisions
+
             print 'measure {} beat {}: {} notes, total_duration={}, bin_density={}, bin_keith={}, bin_coordination={}, difficulty={}'.format(mi+1, bi+1, len(bin), total_duration, bin_density, bin_keith, bin_coordination, difficulty)
 
+        print 'measure {} overall d={}, s={}, c={}, D={} (b={})'.format(mi+1, measure_density, measure_syncopation, measure_coordination, measure_difficulty, bin_divisions)
+        exit(0)
 
         # create new phrase
+        print '\n\n...\nCREATING NEW PHRASE\n...\n'
         for bi, bin in enumerate(bins):
             # values = calculate_values_for_bin(bin, bin_duration, bin_divisions)
-            print '\n=== measure {} beat {} ==='.format(mi, bi)
+            print '\n=== measure {} beat {} ==='.format(mi+1, bi+1)
             bin = adjust_bin(bin, bin_duration, bin_divisions, target_difficulty, weights, gradients)
             bins[bi] = bin
 
@@ -691,6 +707,8 @@ if __name__ == '__main__':
     print '\n\n'
     # print score_json['score-partwise']['part']['measure'][0]['note']
 
+    # stats
+    # score_json['credit']
 
     print debug_unparse(measures[0]['note'][0], 'note')
 

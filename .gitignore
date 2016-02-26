@@ -1,3 +1,7 @@
+*.ppt*
+*.doc*
+*.png
+*.pdf
 *.txt
 .DS_Store
 resources
