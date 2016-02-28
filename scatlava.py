@@ -130,6 +130,7 @@ duration_to_note_attrs = {
 # 
 
 
+# Calculate d, s, and c for a bin
 def calculate_values_for_bin(bin, bin_duration, bin_divisions): # NOTE: only does difficulty using default weights
     density = calculate_value_for_bin(bin, 'DENSITY', bin_duration, bin_divisions)
     syncopation = calculate_value_for_bin(bin, 'SYNCOPATION_KEITH', bin_duration, bin_divisions) # using keith's measure
@@ -174,6 +175,7 @@ def adjust_bin(bin, bin_duration, bin_divisions, target_difficulty, weights, gra
         # bin = adjust_for_rests(bin)
         return adjust_bin(bin, bin_duration, bin_divisions, target_difficulty, weights, gradients, stochastic_modifier, i+1)
 
+# 5.1: Adjust onset density
 def adjust_density(bin, d, g, sm, i):
     # return d - g
     adjusted_bin = bin
@@ -200,6 +202,7 @@ def adjust_density(bin, d, g, sm, i):
         print 'density adjusted for run {}'.format(i)
     return adjusted_bin
 
+# 5.2: Adjust syncopation
 def adjust_syncopation(bin, s, g, sm, i):
     # return s - g
     # dice = random.random()
@@ -257,6 +260,7 @@ def adjust_syncopation(bin, s, g, sm, i):
         print 'syncopation adjusted for run {}'.format(i)
     return adjusted_bin
 
+# 5.3: Adjust coordination
 def adjust_coordination(bin, c, g, sm, i):
     # return c - g
     adjusted_bin = bin
@@ -306,12 +310,12 @@ def adjust_coordination(bin, c, g, sm, i):
     return adjusted_bin
 
 
-# scale subdivisions up by one (so 16ths -> 8th triplets)
+# Scale subdivisions up by one (so 16ths -> 8th triplets)
 # dummy for now
 def adjust_subdivisions(bin):
     return bin
 
-# adjust note lengths
+# Adjust note lengths
 def adjust_for_rests(bin):
     adjusted_bin = bin
     for i, note in enumerate(bin):
@@ -329,14 +333,15 @@ def adjust_for_rests(bin):
                 bin[i] = note
     return adjusted_bin
 
-# strip rests from bin
+# Strip rests from bin
 def filter_bin(bin):
     return filter(lambda note: is_onset_note(note), bin)
 
+# Determine whether a note is an onset (i.e. a valid non-rest)
 def is_onset_note(note):
     return is_valid_note(note) and 'rest' not in note
 
-# returns size of bin, treating simultaneous onsets as ONE single note
+# Returns size of bin, treating simultaneous onsets as ONE single note
 def get_polyphonic_bin_density(bin):
     size = 0
     for i, note in enumerate(bin):
@@ -344,14 +349,14 @@ def get_polyphonic_bin_density(bin):
             size += 1
     return size
 
-# swap two elements in a list
+# Swap two elements in a list
 def swap(bin, i, j):
     tmp = bin[i]
     bin[i] = bin[j]
     bin[j] = tmp
     return bin
 
-# update the pitch of note to that of note_new
+# Update the pitch of note to that of note_new
 def update_pitch(note, note_new):
     note['unpitched']['display-step'] = note_new['unpitched']['display-step']
     note['unpitched']['display-octave'] = note_new['unpitched']['display-octave']
@@ -424,32 +429,39 @@ def parse_note(note, prev_note, duration_min, duration_left):
         print '{}, {}'.format(note['duration'], note_attrs)
     return note
 
+# Tripletize a note's duration
 def tripletize_duration(duration):
     return duration*2/3
 
+# Create a data dict that can be debugged
 def make_data_document(data, label):
     return {'data': {
         label: data
     }}
 
+# Unparse XML for debugging purposes
 def debug_unparse(data, label):
     return xmltodict.unparse(make_data_document(data, label))
 
 # def remove_rests(note):
     # return
 
+# Concatenates note pitch and octave
 def to_note_name(note):
     if 'unpitched' not in note:
         return 'B#0'
     unpitched = note['unpitched']
     return '{}{}'.format(unpitched['display-step'], unpitched['display-octave'])
 
+# Determines whether a note is valid and can be operated on. Includes valid rests
 def is_valid_note(note):
     return type(note) is dict or type(note) is collections.OrderedDict
 
+# Add two durations together
 def add_duration(x,y):
     return x+y
 
+# Convert a note to a (valid) rest
 def note_to_rest(note):
     rest = {
         'rest': None,
@@ -458,7 +470,7 @@ def note_to_rest(note):
     }
     return rest
 
-# Determine the syncopation value of a beat (bin) via one of several methods
+# Determine the value of d, s, or c for a beat window (bin)
 def calculate_value_for_bin(bin, method, bin_size, bin_divisions=4, max_bin_granularity=32):
     value = 0
     granularity = max_bin_granularity / bin_divisions
@@ -564,10 +576,12 @@ def calculate_value_for_bin(bin, method, bin_size, bin_divisions=4, max_bin_gran
 
     return value
 
+# Return the total duration of a bin
 def get_total_bin_duration(bin):
     return reduce(add_duration, [int(note['duration']) if is_valid_note(note) else 0 for note in bin], 0)
 
-# this is ugly and repetitive but works as a temporary measure
+# Calculate the overall difficulty of a piece
+# TODO: refactor this! it is ugly and repetitive but works as a temporary measure
 def calculate_overall_difficulty(measures, weights):
     overall_difficulty = 0
     for mi, measure in enumerate(measures):
@@ -641,6 +655,7 @@ def calculate_overall_difficulty(measures, weights):
 # The main method, to be run with each generation of a new score
 if __name__ == '__main__':
 
+    # Setup command-line arguments
     parser = argparse.ArgumentParser(description = 'SCATLAVA: Software for Computer-Assisted Transcription Learning through Algorithmic Variation and Analysis')
     parser.add_argument('score_xml_in_path', help='the original transcription')
     parser.add_argument('score_xml_out_path', help='the generated modified score', nargs='?', default='scatlava_out.xml')
@@ -665,7 +680,7 @@ if __name__ == '__main__':
     stochastic_modifier = args.stochastic_modifier
     analysis_only = args.analysis_only
 
-    # put weights in {'d': n, 's': n, 'c': n} format
+    # Put weights in {'d': n, 's': n, 'c': n} format
     weights_arr = [float(w) for w in weights_str.split(',')]
     weights = {
         'd': weights_arr[0],
@@ -673,7 +688,8 @@ if __name__ == '__main__':
         'c': weights_arr[2]
     }
 
-    # put gradients in {'d': n, 's': n, 'c': n} format
+    # Put gradients in {'d': n, 's': n, 'c': n} format
+    # (gradients are computed from user_confidences from UI)
     gradients_arr = [float(w) for w in gradients_str.split(',')]
     gradients = {
         'd': gradients_arr[0],
@@ -681,10 +697,7 @@ if __name__ == '__main__':
         'c': gradients_arr[2]
     }
 
-    # calculate gradients from user_confidences
-
-
-    # load input score as json
+    # Load input score as json
     score_xml = ''
     with open(score_xml_in_path, 'r') as f:
         score_xml = f.read()
@@ -697,20 +710,16 @@ if __name__ == '__main__':
 
     duration_min = 128 # rhythmic granularity of the output score we want
 
-    # difficulty tracking!
-    # overall_difficulty_original_by_measure = 0
-    # overall_difficulty_original_by_bins = 0
-    # overall_difficulty_new_by_measure = 0
-    # overall_difficulty_new_by_bins = 0
+    # Difficulty tracking!
     overall_difficulty_original = 0
     overall_difficulty_new = 0
     
     overall_difficulty_original_by_measure = calculate_overall_difficulty(measures, weights)
     overall_difficulty_new_by_measure = 0
 
-    # iterate through measures
+    # Iterate through measures
     for mi, measure in enumerate(measures):
-        # print measure
+        # Print measure
         notes = measure['note']
         prev_note_dur = 0
         prev_note = {
@@ -723,22 +732,20 @@ if __name__ == '__main__':
         duration_left = 1024 # default measure length in 4/4
         # print 'num notes before: {}'.format(len(notes))
 
-        # measure values
+        # Measure values
         measure_density = 0
         measure_syncopation = 0
         measure_coordination = 0
         measure_difficulty_original = 0
         measure_difficulty_new = 0
 
-
-        # another approach: binning
-        # bin_divisions = 4
+        # Bin setup
         bin_duration = duration_left / bin_divisions
         cur_bin_duration = bin_duration
         bin_i = 0
         bins = [ [] for i in xrange(bin_divisions) ]
 
-        # separate notes into bins by beat
+        # Separate notes into bins by beat
         prev_x = 0
         for ni, note in enumerate(notes):
             if is_valid_note(note) and 'duration' in note:
@@ -756,7 +763,7 @@ if __name__ == '__main__':
 
                 cur_bin_duration = bin_duration
 
-        # output analysis to validate correct binning
+        # Output analysis to validate correct binning
         for bi, bin in enumerate(bins):
             total_duration = get_total_bin_duration(bin)
             bin_density = calculate_value_for_bin(bin, 'DENSITY', bin_duration, bin_divisions)
@@ -774,9 +781,9 @@ if __name__ == '__main__':
         # print 'measure {} overall d={}, s={}, c={}, D={} (b={})'.format(mi+1, measure_density, measure_syncopation, measure_coordination, measure_difficulty_original, bin_divisions)
         # exit(0)
 
-        # create new phrase
+        # Create new phrase based on parameters
         if not analysis_only:
-            print '\n\n...\ncreating new phrase\n...\n'
+            print '\n\n...\nCreating new phrase\n...\n'
             for bi, bin in enumerate(bins):
                 values = calculate_values_for_bin(bin, bin_duration, bin_divisions)
                 difficulty = calculate_difficulty_from_values(values['density'], values['syncopation'], values['coordination'], weights)
@@ -794,13 +801,13 @@ if __name__ == '__main__':
         # else:
         #     print 'analysis mode only: not generating new phrase'
 
-        # new notes
+        # New notes
         notes = []
         for bin in bins:
             notes += bin
 
 
-        # # iterate through notes and adjust durations (or delete note) using parse_note()
+        # # Iterate through notes and adjust durations (or delete note) using parse_note()
         # for ni, note in enumerate(notes):
         #     print 'note {}:'.format(ni)
         #     # note = parse_note(note, prev_note)
@@ -822,13 +829,16 @@ if __name__ == '__main__':
         # # notes = filter(remove_rests, notes)
         # notes = [note for note in notes if (is_valid_note(note))]
 
+        # Update difficulty values
         overall_difficulty_original += measure_difficulty_original/len(measures)
         overall_difficulty_new += measure_difficulty_new/len(measures)
+
         # print 'measure difficulty: {} -> {}'.format(measure_difficulty_original, measure_difficulty_new)
 
         # print 'num notes after: {}'.format(len(notes))
         # print notes
 
+        # Update measure
         measures[mi]['note'] = notes
 
 
@@ -836,7 +846,7 @@ if __name__ == '__main__':
     # print '\n\n'
     # print score_json['score-partwise']['part']['measure'][0]['note']
 
-    # stats
+    # Print final statistics
     # score_json['credit']
     print '\n\nusing: {}'.format(args)
     overall_difficulty_new_by_measure = calculate_overall_difficulty(measures, weights)
