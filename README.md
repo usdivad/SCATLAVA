@@ -1,7 +1,7 @@
 SCATLAVA: Software for Computer-Assisted Transcription Learning through Algorithmic Variation and Analysis
 ===================
 
-Transcribing music is an essential part of studying jazz. SCATLAVA is a software framework that analyzes a transcription for difficulty and algorithmically generates variations in an adaptive learning manner in order to aid students in their assimi-lation and understanding of the musical material and vocabulary, with an emphasis on rhythmic properties to assist jazz drummers and percussionists. The key charac-teristics examined by the software are onset density, syncopation measure, and limb interdependence (also known as coordination), the last of which introduces the concept of and presents an equation for calculating contextual note interdependence difficulty (CNID).
+Transcribing music is an essential part of studying jazz. SCATLAVA is a software framework that analyzes a transcription for difficulty and algorithmically generates variations in an adaptive learning manner in order to aid students in their assimilation and understanding of the musical material and vocabulary, with an emphasis on rhythmic properties to assist jazz drummers and percussionists. The key characteristics examined by the software are onset density, syncopation measure, and limb interdependence (also known as coordination), the last of which introduces the concept of and presents an equation for calculating contextual note interdependence difficulty (CNID).
 
 
 Usage:
