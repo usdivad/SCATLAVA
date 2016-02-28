@@ -1,8 +1,14 @@
-import bs4
-import sys
-import xmltodict
+# SCATLAVA: Software for Computer-Assisted Transcription Learning through
+# Algorithmic Variation and Analysis
+# 
+# by David Su, dds2135@columbia.edu
+
+
+import argparse
 import collections
 import random
+import sys
+import xmltodict
 
 note_type_to_duration = {
     '32nd': 32
@@ -202,7 +208,7 @@ def adjust_syncopation(bin, s, g, sm, i):
     # adjust = random.choice([True, False])
     adjust = random.random() < sm
     adjusted_bin = bin
-    print s
+    # print s
     if i*g >= 1 and adjust:
         filtered_bin = filter_bin(adjusted_bin)
         first_note = adjusted_bin[0]
@@ -576,7 +582,7 @@ def calculate_overall_difficulty(measures, weights):
             }
         }
         duration_left = 1024 # default measure length in 4/4
-        print 'num notes before: {}'.format(len(notes))
+        # print 'num notes before: {}'.format(len(notes))
 
         # measure values
         measure_density = 0
@@ -626,7 +632,7 @@ def calculate_overall_difficulty(measures, weights):
 
             # print 'measure {} beat {}: {} notes, total_duration={}, bin_density={}, bin_keith={}, bin_coordination={}, difficulty={}'.format(mi+1, bi+1, len(bin), total_duration, bin_density, bin_keith, bin_coordination, difficulty)
 
-        print 'measure {} overall d={}, s={}, c={}, D={} (b={})'.format(mi+1, measure_density, measure_syncopation, measure_coordination, measure_difficulty_original, bin_divisions)
+        # print 'measure {} overall d={}, s={}, c={}, D={} (b={})'.format(mi+1, measure_density, measure_syncopation, measure_coordination, measure_difficulty_original, bin_divisions)
 
         overall_difficulty += measure_difficulty_original/len(measures)
 
@@ -634,17 +640,30 @@ def calculate_overall_difficulty(measures, weights):
 
 # The main method, to be run with each generation of a new score
 if __name__ == '__main__':
-    score_xml_in_path = sys.argv[1] # the original transcription
-    score_xml_out_path = sys.argv[2] # the generated modified score
+
+    parser = argparse.ArgumentParser(description = 'SCATLAVA: Software for Computer-Assisted Transcription Learning through Algorithmic Variation and Analysis')
+    parser.add_argument('score_xml_in_path', help='the original transcription')
+    parser.add_argument('score_xml_out_path', help='the generated modified score', nargs='?', default='scatlava_out.xml')
+    parser.add_argument('-t', '--target_difficulty', help='0 to 1, as a ratio of original transcription\'s difficulty', default=0.5, type=float)
+    parser.add_argument('-w', '--weights', help='comma-separated d,s,c. e.g. 0.2,0.1,0.7', default='0.33,0.33,0.34')
+    parser.add_argument('-g', '--gradients', help='comma-separated d,s,c. e.g. 0.2,0.1,0.7', default='0.33,0.33,0.34')
+    parser.add_argument('-b', '--bin_divisions', help='number of bins to divide a measure into', default=4, type=int)
+    parser.add_argument('-f', '--stochastic_modifier', help='0 to 1', default=0.5, type=float)
+    parser.add_argument('-a', '--analysis_only', help='flag to set analysis mode on or off', action='store_true')
+
+    args = parser.parse_args()
+
+    score_xml_in_path = args.score_xml_in_path
+    score_xml_out_path = args.score_xml_out_path
     # difficulty_gradient = sys.argv[3] # 0 to 1.
     # minimum_difficulty = sys.argv[4]
     # target_difficulty = minimum_difficulty + difficulty_gradient
-    target_difficulty = float(sys.argv[3]) # 0 to 1, as a ratio of the original transcription's difficulty
-    weights_str = sys.argv[4] # d,s,c e.g. "0.2,0.1,0.7"
-    gradients_str = sys.argv[5] # d,s,c
-    bin_divisions = int(sys.argv[6])
-    stochastic_modifier = float(sys.argv[7])
-    analysis_only = (sys.argv[8] == 'analysis')
+    target_difficulty = args.target_difficulty
+    weights_str = args.weights
+    gradients_str = args.gradients
+    bin_divisions = args.bin_divisions
+    stochastic_modifier = args.stochastic_modifier
+    analysis_only = args.analysis_only
 
     # put weights in {'d': n, 's': n, 'c': n} format
     weights_arr = [float(w) for w in weights_str.split(',')]
@@ -702,7 +721,7 @@ if __name__ == '__main__':
             }
         }
         duration_left = 1024 # default measure length in 4/4
-        print 'num notes before: {}'.format(len(notes))
+        # print 'num notes before: {}'.format(len(notes))
 
         # measure values
         measure_density = 0
@@ -750,14 +769,14 @@ if __name__ == '__main__':
             measure_coordination += bin_coordination / bin_divisions
             measure_difficulty_original += difficulty / bin_divisions
 
-            print 'measure {} beat {}: {} notes, total_duration={}, bin_density={}, bin_keith={}, bin_coordination={}, difficulty={}'.format(mi+1, bi+1, len(bin), total_duration, bin_density, bin_keith, bin_coordination, difficulty)
+            # print 'measure {} beat {}: {} notes, total_duration={}, bin_density={}, bin_keith={}, bin_coordination={}, difficulty={}'.format(mi+1, bi+1, len(bin), total_duration, bin_density, bin_keith, bin_coordination, difficulty)
 
-        print 'measure {} overall d={}, s={}, c={}, D={} (b={})'.format(mi+1, measure_density, measure_syncopation, measure_coordination, measure_difficulty_original, bin_divisions)
+        # print 'measure {} overall d={}, s={}, c={}, D={} (b={})'.format(mi+1, measure_density, measure_syncopation, measure_coordination, measure_difficulty_original, bin_divisions)
         # exit(0)
 
         # create new phrase
         if not analysis_only:
-            print '\n\n...\nCREATING NEW PHRASE\n...\n'
+            print '\n\n...\ncreating new phrase\n...\n'
             for bi, bin in enumerate(bins):
                 values = calculate_values_for_bin(bin, bin_duration, bin_divisions)
                 difficulty = calculate_difficulty_from_values(values['density'], values['syncopation'], values['coordination'], weights)
@@ -772,6 +791,8 @@ if __name__ == '__main__':
                 values = calculate_values_for_bin(bin, bin_duration, bin_divisions)
                 difficulty = calculate_difficulty_from_values(values['density'], values['syncopation'], values['coordination'], weights)
                 measure_difficulty_new += difficulty / bin_divisions
+        # else:
+        #     print 'analysis mode only: not generating new phrase'
 
         # new notes
         notes = []
@@ -803,27 +824,30 @@ if __name__ == '__main__':
 
         overall_difficulty_original += measure_difficulty_original/len(measures)
         overall_difficulty_new += measure_difficulty_new/len(measures)
-        print 'measure difficulty: {} -> {}'.format(measure_difficulty_original, measure_difficulty_new)
+        # print 'measure difficulty: {} -> {}'.format(measure_difficulty_original, measure_difficulty_new)
 
-        print 'num notes after: {}'.format(len(notes))
+        # print 'num notes after: {}'.format(len(notes))
         # print notes
 
         measures[mi]['note'] = notes
 
 
 
-    print '\n\n'
+    # print '\n\n'
     # print score_json['score-partwise']['part']['measure'][0]['note']
 
     # stats
     # score_json['credit']
+    print '\n\nusing: {}'.format(args)
     overall_difficulty_new_by_measure = calculate_overall_difficulty(measures, weights)
     print 'overall difficulty (by bins): {} -> {} (ratio of {})'.format(overall_difficulty_original, overall_difficulty_new, float(overall_difficulty_new)/overall_difficulty_original)
     print 'overall difficulty (by measures): {} -> {} (ratio of {})'.format(overall_difficulty_original_by_measure, overall_difficulty_new_by_measure, float(overall_difficulty_new_by_measure)/overall_difficulty_original_by_measure)
-    print 'ratio to 1_original is {}; target difficulty was {}'.format(overall_difficulty_new_by_measure/0.567598824786, target_difficulty)
+    # print 'ratio to 1_original is {}; target difficulty was {}'.format(overall_difficulty_new_by_measure/0.567598824786, target_difficulty)
+    print 'target_difficulty was {}'.format(target_difficulty)
 
     # print debug_unparse(measures[0]['note'][0], 'note')
 
     if not analysis_only:
         with open(score_xml_out_path, 'w') as f:
             xmltodict.unparse(score_json, output=f, pretty=True)
+        print 'wrote to {}'.format(score_xml_out_path)
