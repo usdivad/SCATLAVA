@@ -10,127 +10,8 @@ import random
 import sys
 import xmltodict
 
-note_type_to_duration = {
-    '32nd': 32
-}
-
-# Default duration -> note_attrs for MusicXML construction and analysis
-# NOTE: here we only support up to 32nd notes
-duration_to_note_attrs = {
-    #32nds
-    32: {'type': '32nd'},
-
-    # 16th triplets
-    42: {
-        'type': '16th',
-        'time-modification': {
-            'actual-notes': 3,
-            'normal-notes': 2,
-            'normal-type': '16th'
-        }
-    },
-    43: {
-        'type': '16th',
-        'time-modification': {
-            'actual-notes': 3,
-            'normal-notes': 2,
-            'normal-type': '16th'
-        }
-    },
-
-    # 16ths
-    63: {'type': '16th'}, # rounding
-    64: {'type': '16th'},
-
-    # dotted 16ths
-    96: {'type': '16th', 'dot': ''},
-
-    # 8th triplets
-    84: {  # rounding
-        'type': 'eighth',
-        'time-modification': {
-            'actual-notes': 3,
-            'normal-notes': 2,
-            'normal-type': 'eighth'
-        }
-    },
-    85: {
-        'type': 'eighth',
-        'time-modification': {
-            'actual-notes': 3,
-            'normal-notes': 2,
-            'normal-type': 'eighth'
-        }
-    },
-    86: {
-        'type': 'eighth',
-        'time-modification': {
-            'actual-notes': 3,
-            'normal-notes': 2,
-            'normal-type': 'eighth'
-        }
-    },
-
-    # 8ths
-    126: {'type': 'eighth'}, # for rounding when tripletizing up
-    127: {'type': 'eighth'}, # for rounding when tripletizing up
-    128: {'type': 'eighth'},
-    129: {'type': 'eighth'}, # for rounding when tripletizing up
-
-    # dotted 8ths
-    190: {'type': 'eighth', 'dot': ''},  # rounding
-    192: {'type': 'eighth', 'dot': ''},
-
-    # quarter triplets
-    170: {
-        'type': 'quarter',
-        'time-modification': {
-            'actual-notes': 3,
-            'normal-notes': 2,
-            'normal-type': 'quarter'
-        }
-    },
-    171: {
-        'type': 'quarter',
-        'time-modification': {
-            'actual-notes': 3,
-            'normal-notes': 2,
-            'normal-type': 'quarter'
-        }
-    },
-    172: {
-        'type': 'quarter',
-        'time-modification': {
-            'actual-notes': 3,
-            'normal-notes': 2,
-            'normal-type': 'quarter'
-        }
-    },
-
-    # quarter
-    252: {'type': 'quarter'}, # rounding
-    254: {'type': 'quarter'}, # rounding
-    256: {'type': 'quarter'},
-
-    # dotted quarter
-    384: {'type': 'quarter', 'dot': ''},
-
-    # half
-    512: {'type': 'half'},
-
-    # dotted half
-    768: {'type': 'half', 'dot': ''},
-
-    # whole
-    1024: {'type': 'whole'}
-}
-
-# Definitions for difficulty values relative to original transcription
-# (so D(original_transcription) = 1)
-# 
-
-
-# Calculate d, s, and c for a bin
+# Calculate onset density (d), syncopation value (s), and
+# interdependence/coordination value (c) for a bin.
 def calculate_values_for_bin(bin, bin_duration, bin_divisions): # NOTE: only does difficulty using default weights
     density = calculate_value_for_bin(bin, 'DENSITY', bin_duration, bin_divisions)
     syncopation = calculate_value_for_bin(bin, 'SYNCOPATION_KEITH', bin_duration, bin_divisions) # using keith's measure
@@ -149,13 +30,13 @@ def calculate_difficulty_from_values(d, s, c, w={'d': 0.33, 's': 0.34, 'c': 0.33
 
 
 # Adjust the bin! (recursive)
-#   bin to adjust
-#   bin_duration in MusicXML format (1024 = whole note)
-#   bin_divisions: total number of bins in a measure
-#   target_difficulty (0 to 1, expressed as a ratio to current bin difficulty)
-#   weights in form {'d': x, 's': y, 'c': z}, where x+y+z = 1 and 0 < x,y,z < 1
-#   gradients in same form as above
-#   i (index of current adjustment run)
+#   - bin to adjust
+#   - bin_duration in MusicXML format (1024 = whole note)
+#   - bin_divisions: total number of bins in a measure
+#   - target_difficulty (0 to 1, expressed as a ratio to current bin difficulty)
+#   - weights in form {'d': x, 's': y, 'c': z}, where x+y+z = 1 and 0 < x,y,z < 1
+#   - gradients in same form as above
+#   - i (index of current adjustment run)
 def adjust_bin(bin, bin_duration, bin_divisions, target_difficulty, weights, gradients, stochastic_modifier, i=0):
     bin_values = calculate_values_for_bin(bin, bin_duration, bin_divisions)
     cur_difficulty = calculate_difficulty_from_values(bin_values['density'], bin_values['syncopation'], bin_values['coordination'], weights)
@@ -651,6 +532,119 @@ def calculate_overall_difficulty(measures, weights):
         overall_difficulty += measure_difficulty_original/len(measures)
 
     return overall_difficulty
+
+
+# Default duration -> note_attrs for MusicXML construction and analysis
+# NOTE: here we only support up to 32nd notes
+duration_to_note_attrs = {
+    #32nds
+    32: {'type': '32nd'},
+
+    # 16th triplets
+    42: {
+        'type': '16th',
+        'time-modification': {
+            'actual-notes': 3,
+            'normal-notes': 2,
+            'normal-type': '16th'
+        }
+    },
+    43: {
+        'type': '16th',
+        'time-modification': {
+            'actual-notes': 3,
+            'normal-notes': 2,
+            'normal-type': '16th'
+        }
+    },
+
+    # 16ths
+    63: {'type': '16th'}, # rounding
+    64: {'type': '16th'},
+
+    # dotted 16ths
+    96: {'type': '16th', 'dot': ''},
+
+    # 8th triplets
+    84: {  # rounding
+        'type': 'eighth',
+        'time-modification': {
+            'actual-notes': 3,
+            'normal-notes': 2,
+            'normal-type': 'eighth'
+        }
+    },
+    85: {
+        'type': 'eighth',
+        'time-modification': {
+            'actual-notes': 3,
+            'normal-notes': 2,
+            'normal-type': 'eighth'
+        }
+    },
+    86: {
+        'type': 'eighth',
+        'time-modification': {
+            'actual-notes': 3,
+            'normal-notes': 2,
+            'normal-type': 'eighth'
+        }
+    },
+
+    # 8ths
+    126: {'type': 'eighth'}, # for rounding when tripletizing up
+    127: {'type': 'eighth'}, # for rounding when tripletizing up
+    128: {'type': 'eighth'},
+    129: {'type': 'eighth'}, # for rounding when tripletizing up
+
+    # dotted 8ths
+    190: {'type': 'eighth', 'dot': ''},  # rounding
+    192: {'type': 'eighth', 'dot': ''},
+
+    # quarter triplets
+    170: {
+        'type': 'quarter',
+        'time-modification': {
+            'actual-notes': 3,
+            'normal-notes': 2,
+            'normal-type': 'quarter'
+        }
+    },
+    171: {
+        'type': 'quarter',
+        'time-modification': {
+            'actual-notes': 3,
+            'normal-notes': 2,
+            'normal-type': 'quarter'
+        }
+    },
+    172: {
+        'type': 'quarter',
+        'time-modification': {
+            'actual-notes': 3,
+            'normal-notes': 2,
+            'normal-type': 'quarter'
+        }
+    },
+
+    # quarter
+    252: {'type': 'quarter'}, # rounding
+    254: {'type': 'quarter'}, # rounding
+    256: {'type': 'quarter'},
+
+    # dotted quarter
+    384: {'type': 'quarter', 'dot': ''},
+
+    # half
+    512: {'type': 'half'},
+
+    # dotted half
+    768: {'type': 'half', 'dot': ''},
+
+    # whole
+    1024: {'type': 'whole'}
+}
+
 
 # The main method, to be run with each generation of a new score
 if __name__ == '__main__':
